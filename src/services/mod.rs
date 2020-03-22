@@ -1,6 +1,13 @@
 pub mod deezer;
 pub mod spotify;
 
+#[derive(Debug)]
+pub enum Services {
+    Deezer,
+    Spotify,
+    Unsupported
+}
+
 pub enum MusicType {
     Track,
     Album,

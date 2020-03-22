@@ -9,6 +9,10 @@ const API_VERSION: &'static str = "/v1";
 
 const API_TRACKS: &'static str = "/tracks/";
 
+const API_SEARCH: &'static str = "/search";
+
+pub const SPOTIFY_DOMAIN: &'static str = "https://open.spotify.com";
+
 const SPOTIFY_URL: &'static str = "https://open.spotify.com/track/";
 
 const SPOTIFY_ID_LEN: usize = 22;
@@ -104,7 +108,35 @@ impl SpotifyController {
         })
     }
     
-    fn generate_url(data: &UrlData) -> String {
-        unimplemented!();
+    pub async fn generate_url(&self, data: &UrlData) -> Result<String, reqwest::Error> {
+        let data = format!("artist:\"{}\" track:\"{}\"", data.artist, data.track);
+        let query_data = ("q", data.as_str());
+        let query_type = ("type", "track");
+        let query_limit = ("limit", "1");
+
+        let list = [query_data, query_type, query_limit];
+
+        let link = format!("{}{}{}", DOMAIN, API_VERSION, API_SEARCH);
+
+        let res = self.http_client
+            .get(&link)
+            .header(ACCEPT, "application/json")
+            .header(X_CONTENT_TYPE_OPTIONS, "application/json")
+            .header(AUTHORIZATION, format!("Bearer {}", self.auth_token.access_token))
+            .query(&list)
+            .send()
+            .await?;
+
+        //dbg!(&res);
+
+        let res = res
+            .json::<serde_json::Value>()
+            .await?;
+        
+        //dbg!(&res);
+
+        let id = res["tracks"]["items"][0]["id"].as_str().unwrap();
+
+        Ok(format!("{}{}", SPOTIFY_URL, id))
     }
 }
