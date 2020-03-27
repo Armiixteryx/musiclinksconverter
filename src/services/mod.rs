@@ -6,7 +6,7 @@ use url::Url;
 #[derive(Debug)]
 pub enum Services {
     Deezer,
-    Spotify
+    Spotify,
 }
 
 trait Constants<'a> {
@@ -17,7 +17,7 @@ trait Constants<'a> {
 
 pub struct UrlService {
     pub service: Services,
-    pub id: String
+    pub id: String,
 }
 
 pub struct UrlData {
@@ -27,7 +27,7 @@ pub struct UrlData {
 
 pub fn get_service<'a>(user_url: &str) -> Result<UrlService, &'static str> {
     const ERROR_MSG: &'static str = "This is not a valid URL.";
-    
+
     let service;
     let mut id = String::new();
 
@@ -42,10 +42,10 @@ pub fn get_service<'a>(user_url: &str) -> Result<UrlService, &'static str> {
     // Checking scheme
     if scheme != "https" {
         if scheme != "http" {
-            return Err("I only accept http/https schemes.")
+            return Err("I only accept http/https schemes.");
         } else {
             if let Err(()) = url.set_scheme("https") {
-                return Err("Internal error.")
+                return Err("Internal error.");
             }
         }
     }
@@ -57,27 +57,26 @@ pub fn get_service<'a>(user_url: &str) -> Result<UrlService, &'static str> {
                 service = Services::Deezer;
                 object_type = deezer::Metadata::music_object_type();
                 service_id_len = deezer::Metadata::ID_LEN;
-            },
+            }
             spotify::Metadata::URL_PLAYER_HOST => {
                 service = Services::Spotify;
                 object_type = spotify::Metadata::music_object_type();
                 service_id_len = spotify::Metadata::ID_LEN;
-            },
-            _ => return Err("The url does not contain a supported service")
+            }
+            _ => return Err("The url does not contain a supported service"),
         }
     } else {
-        return Err(ERROR_MSG)
+        return Err(ERROR_MSG);
     }
-    
+
     // Check url object
     if let Some(mut path) = url.path_segments() {
         if let Some(query) = path.next() {
-            
             if !object_type.iter().any(|&x| x == query) {
                 return Err("This is not a song, an album nor an artist url");
             }
         }
-        
+
         // Check id
         if let Some(url_id) = path.next() {
             if url_id.len() != service_id_len {
@@ -89,13 +88,9 @@ pub fn get_service<'a>(user_url: &str) -> Result<UrlService, &'static str> {
             return Err(ERROR_MSG);
         }
     }
-    
-    Ok(UrlService {
-        service,
-        id
-    })
-}
 
+    Ok(UrlService { service, id })
+}
 
 /*
 pub trait MusicService {

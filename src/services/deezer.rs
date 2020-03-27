@@ -1,4 +1,4 @@
-use super::{UrlData, Constants};
+use super::{Constants, UrlData};
 use url::Url;
 
 const API: &'static str = "https://api.deezer.com";
@@ -11,7 +11,7 @@ pub struct Metadata {}
 
 impl<'a> Constants<'a> for Metadata {
     const URL_PLAYER_HOST: &'static str = "www.deezer.com";
-    
+
     fn music_object_type() -> Vec<&'a str> {
         vec!["track", "album", "artist"]
     }
@@ -20,13 +20,13 @@ impl<'a> Constants<'a> for Metadata {
 }
 
 pub struct DeezerController {
-    client: reqwest::Client
+    client: reqwest::Client,
 }
 
 impl DeezerController {
     pub fn new() -> DeezerController {
         DeezerController {
-            client: reqwest::Client::new()
+            client: reqwest::Client::new(),
         }
     }
 
@@ -37,7 +37,8 @@ impl DeezerController {
 
         //dbg!(&request);
 
-        let response = self.client
+        let response = self
+            .client
             .get(request.as_str())
             .send()
             .await?
@@ -54,17 +55,19 @@ impl DeezerController {
 
         Ok(UrlData {
             artist: artist.to_string(),
-            track: track.to_string()
+            track: track.to_string(),
         })
     }
 
     pub async fn generate_url(&self, data: &UrlData) -> Result<String, reqwest::Error> {
         let mut request = Url::parse(API).unwrap();
         request.set_path(API_SEARCH);
-        
+
         let request_query = format!("artist:\"{}\" track:\"{}\"", data.artist, data.track);
 
-        let response = self.client.get(request.as_str())
+        let response = self
+            .client
+            .get(request.as_str())
             .query(&[("q", request_query.as_str())])
             .send()
             .await?
