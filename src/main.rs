@@ -32,20 +32,19 @@ async fn main() -> Result<(), reqwest::Error> {
 
             let message = match service {
                 Services::Deezer => {
-                    let deezer_data = control_deezer.analyze_url(&context.text.value, &id).await.unwrap();
+                    let deezer_data = control_deezer.analyze_url(&id).await.unwrap();
 
                     control_spotify.generate_url(&deezer_data).await.unwrap()
                 },
                 Services::Spotify => {
-                    let spotify_data = control_spotify.analyze_url(&context.text.value, &id).await.unwrap_or_else(|e| {
+                    let spotify_data = control_spotify.analyze_url(&id).await.unwrap_or_else(|e| {
                         eprintln!("Error: {}", e);
                         eprintln!("Caused by: {}", e.source().unwrap());
                         panic!();
                     });
 
                     control_deezer.generate_url(&spotify_data).await.unwrap()
-                },
-                Services::Unsupported => "Invalid link. Please send other link.".to_string()
+                }
             };
             
             context.send_message_in_reply(&message).call().await.unwrap();

@@ -30,7 +30,7 @@ impl DeezerController {
         }
     }
 
-    pub async fn analyze_url(&self, url: &str, id: &str) -> Result<UrlData, reqwest::Error> {
+    pub async fn analyze_url(&self, id: &str) -> Result<UrlData, reqwest::Error> {
         let mut request = Url::parse(API).unwrap();
 
         request.set_path(&format!("{}{}", ENDPOINT_TRACK, id));

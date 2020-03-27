@@ -6,8 +6,7 @@ use url::Url;
 #[derive(Debug)]
 pub enum Services {
     Deezer,
-    Spotify,
-    Unsupported
+    Spotify
 }
 
 trait Constants<'a> {
