@@ -63,7 +63,7 @@ pub fn get_service<'a>(user_url: &str) -> Result<UrlService, &'static str> {
                 object_type = spotify::Metadata::music_object_type();
                 service_id_len = spotify::Metadata::ID_LEN;
             }
-            _ => return Err("The url does not contain a supported service"),
+            _ => return Err(ERROR_MSG),
         }
     } else {
         return Err(ERROR_MSG);

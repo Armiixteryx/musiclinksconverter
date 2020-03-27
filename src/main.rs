@@ -15,37 +15,43 @@ async fn main() -> Result<(), reqwest::Error> {
         async move {
             let user_msg = &context.text.value;
 
-            let checked_url = services::get_service(user_msg).unwrap();
+            let message: String = match services::get_service(user_msg) {
+                Ok(url) => {
+                    let service = url.service;
+                    let id = url.id;
 
-            let service = checked_url.service;
-            let id = checked_url.id;
+                    //dbg!(&service);
 
-            //dbg!(&service);
+                    let control_deezer = DeezerController::new();
+                    let control_spotify = SpotifyController::new().await.unwrap();
 
-            let control_deezer = DeezerController::new();
-            let control_spotify = SpotifyController::new().await.unwrap();
+                    // `Typing...` status in chat
+                    context
+                        .send_chat_action(Action::Typing)
+                        .call()
+                        .await
+                        .unwrap();
 
-            // `Typing...` status in chat
-            context
-                .send_chat_action(Action::Typing)
-                .call()
-                .await
-                .unwrap();
+                    match service {
+                        Services::Deezer => {
+                            let deezer_data = control_deezer.analyze_url(&id).await.unwrap();
 
-            let message = match service {
-                Services::Deezer => {
-                    let deezer_data = control_deezer.analyze_url(&id).await.unwrap();
+                            control_spotify.generate_url(&deezer_data).await.unwrap()
+                        }
+                        Services::Spotify => {
+                            let spotify_data = control_spotify.analyze_url(&id).await.unwrap_or_else(|e| {
+                                eprintln!("Error: {}", e);
+                                eprintln!("Caused by: {}", e.source().unwrap());
+                                panic!();
+                            });
 
-                    control_spotify.generate_url(&deezer_data).await.unwrap()
+                            control_deezer.generate_url(&spotify_data).await.unwrap()
+                        }
+                    }
                 }
-                Services::Spotify => {
-                    let spotify_data = control_spotify.analyze_url(&id).await.unwrap_or_else(|e| {
-                        eprintln!("Error: {}", e);
-                        eprintln!("Caused by: {}", e.source().unwrap());
-                        panic!();
-                    });
-
-                    control_deezer.generate_url(&spotify_data).await.unwrap()
+                Err(err_msg) => {
+                    eprintln!("{}", err_msg);
+                    err_msg.to_string()
                 }
             };
 
