@@ -1,21 +1,16 @@
-use super::{UrlData};
+use super::{UrlData, Constants};
 use serde::Deserialize;
 use std::env::var;
 use reqwest::header::{ACCEPT, X_CONTENT_TYPE_OPTIONS, AUTHORIZATION};
+use url::Url;
 
-const DOMAIN: &'static str = "https://api.spotify.com";
+const API: &'static str = "https://api.spotify.com";
 
-const API_VERSION: &'static str = "/v1";
+const ENDPOINT_VERSION: &'static str = "/v1";
 
-const API_TRACKS: &'static str = "/tracks/";
+const ENDPOINT_TRACKS: &'static str = "/tracks/";
 
-const API_SEARCH: &'static str = "/search";
-
-pub const SPOTIFY_DOMAIN: &'static str = "https://open.spotify.com";
-
-const SPOTIFY_URL: &'static str = "https://open.spotify.com/track/";
-
-const SPOTIFY_ID_LEN: usize = 22;
+const ENDPOINT_SEARCH: &'static str = "/search";
 
 const TOKEN_URL: &'static str = "https://accounts.spotify.com/api/token";
 
@@ -40,6 +35,19 @@ pub struct SpotifyController {
     credentials: SpotifyCredentials,
     auth_token: SpotifyAuth,
 }
+
+pub struct Metadata {}
+
+impl<'a> Constants<'a> for Metadata {
+    const URL_PLAYER_HOST: &'static str = "open.spotify.com";
+    
+    fn music_object_type() -> Vec<&'a str> {
+        vec!["track", "album", "artist"]
+    }
+    
+    const ID_LEN: usize = 22;
+}
+
 
 impl SpotifyController {
     pub async fn new() -> Result<SpotifyController, reqwest::Error> {
@@ -74,33 +82,32 @@ impl SpotifyController {
         })
     }
 
-    pub async fn analyze_url(&self, url: &str) -> Result<UrlData, reqwest::Error> {
-        let (url, _) = url.trim_start_matches(SPOTIFY_URL).split_at(SPOTIFY_ID_LEN);
-
-        let url = format!("{}{}{}{}", DOMAIN, API_VERSION, API_TRACKS, url);
+    pub async fn analyze_url(&self, url: &str, id: &str) -> Result<UrlData, reqwest::Error> {
+        let mut request = Url::parse(API).unwrap();
+        request.set_path(&format!("{}{}{}", ENDPOINT_VERSION, ENDPOINT_TRACKS, id));
 
         //dbg!(&url);
 
-        let res = self.http_client
-            .get(&url)
+        let response = self.http_client
+            .get(request.as_str())
             .header(ACCEPT, "application/json")
             .header(X_CONTENT_TYPE_OPTIONS, "application/json")
-            .header(AUTHORIZATION, format!("Bearer {}", self.auth_token.access_token))
-            .send()
+            .header(AUTHORIZATION, format!("Bearer {}", self.auth_token.access_token));
+
+        //dbg!(&response);
+
+        let response = response.send()
+            .await?;
+
+        //dbg!(&response);
+
+        let response = response.json::<serde_json::Value>()
             .await?;
         
-        //dbg!(&res);
+        //dbg!(&response);
 
-        let res = res
-            .text()
-            .await?;
-
-        //dbg!(&res);
-
-        let res: serde_json::Value = serde_json::from_str(res.as_str()).unwrap();
-
-        let track = res["name"].as_str().unwrap().to_string();
-        let artist = res["artists"][0]["name"].as_str().unwrap().to_string();
+        let track = response["name"].as_str().unwrap().to_string();
+        let artist = response["artists"][0]["name"].as_str().unwrap().to_string();
         
         Ok(UrlData {
             artist,
@@ -109,6 +116,9 @@ impl SpotifyController {
     }
     
     pub async fn generate_url(&self, data: &UrlData) -> Result<String, reqwest::Error> {
+        let mut request = Url::parse(API).unwrap();
+        request.set_path(&format!("{}{}", ENDPOINT_VERSION, ENDPOINT_SEARCH));
+
         let data = format!("artist:\"{}\" track:\"{}\"", data.artist, data.track);
         let query_data = ("q", data.as_str());
         let query_type = ("type", "track");
@@ -116,27 +126,21 @@ impl SpotifyController {
 
         let list = [query_data, query_type, query_limit];
 
-        let link = format!("{}{}{}", DOMAIN, API_VERSION, API_SEARCH);
-
         let res = self.http_client
-            .get(&link)
+            .get(request.as_str())
             .header(ACCEPT, "application/json")
             .header(X_CONTENT_TYPE_OPTIONS, "application/json")
             .header(AUTHORIZATION, format!("Bearer {}", self.auth_token.access_token))
             .query(&list)
             .send()
-            .await?;
-
-        //dbg!(&res);
-
-        let res = res
+            .await?
             .json::<serde_json::Value>()
             .await?;
-        
+
         //dbg!(&res);
 
         let id = res["tracks"]["items"][0]["id"].as_str().unwrap();
 
-        Ok(format!("{}{}", SPOTIFY_URL, id))
+        Ok(format!("https://{}/track/{}", Metadata::URL_PLAYER_HOST, id))
     }
 }

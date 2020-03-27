@@ -4,7 +4,8 @@ use tbot::prelude::*;
 use tbot::types::chat::Action;
 use std::error::Error;
 
-use services::{deezer::{DeezerController, DEEZER_DOMAIN}, spotify::{SpotifyController, SPOTIFY_DOMAIN}, Services};
+use services::{deezer::{DeezerController}, spotify::{SpotifyController}, Services};
+//use services::UrlService;
 
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
@@ -16,18 +17,12 @@ async fn main() -> Result<(), reqwest::Error> {
 
             let user_msg = &context.text.value;
 
-            let service = {
-                if user_msg.starts_with(DEEZER_DOMAIN) {
-                    Services::Deezer
-                }
-                else if user_msg.starts_with(SPOTIFY_DOMAIN) {
-                    Services::Spotify
-                } else {
-                    Services::Unsupported
-                }
-            };
+            let checked_url = services::get_service(user_msg).unwrap();
 
-            dbg!(&service);
+            let service = checked_url.service;
+            let id = checked_url.id;
+
+            //dbg!(&service);
 
             let control_deezer = DeezerController::new();
             let control_spotify = SpotifyController::new().await.unwrap();
@@ -37,12 +32,12 @@ async fn main() -> Result<(), reqwest::Error> {
 
             let message = match service {
                 Services::Deezer => {
-                    let deezer_data = control_deezer.analyze_url(&context.text.value).await.unwrap();
+                    let deezer_data = control_deezer.analyze_url(&context.text.value, &id).await.unwrap();
 
                     control_spotify.generate_url(&deezer_data).await.unwrap()
                 },
                 Services::Spotify => {
-                    let spotify_data = control_spotify.analyze_url(&context.text.value).await.unwrap_or_else(|e| {
+                    let spotify_data = control_spotify.analyze_url(&context.text.value, &id).await.unwrap_or_else(|e| {
                         eprintln!("Error: {}", e);
                         eprintln!("Caused by: {}", e.source().unwrap());
                         panic!();

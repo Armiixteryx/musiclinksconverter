@@ -1,13 +1,23 @@
-use super::{UrlData, MusicType};
+use super::{UrlData, Constants};
+use url::Url;
 
 const API: &'static str = "https://api.deezer.com";
-const API_SEARCH: &'static str = "/search?q=";
 
-const DEEZER_ID_LEN: usize = 9;
-
-pub const DEEZER_DOMAIN: &'static str = "https://www.deezer.com";
+const API_SEARCH: &'static str = "/search";
 
 const ENDPOINT_TRACK: &'static str = "/track/";
+
+pub struct Metadata {}
+
+impl<'a> Constants<'a> for Metadata {
+    const URL_PLAYER_HOST: &'static str = "www.deezer.com";
+    
+    fn music_object_type() -> Vec<&'a str> {
+        vec!["track", "album", "artist"]
+    }
+
+    const ID_LEN: usize = 9;
+}
 
 pub struct DeezerController {
     client: reqwest::Client
@@ -20,26 +30,26 @@ impl DeezerController {
         }
     }
 
-    pub async fn analyze_url(&self, url: &str) -> Result<UrlData, reqwest::Error> {
-        let (id, _) = url.trim_start_matches(format!("{}{}", DEEZER_DOMAIN, ENDPOINT_TRACK).as_str()).split_at(DEEZER_ID_LEN);
+    pub async fn analyze_url(&self, url: &str, id: &str) -> Result<UrlData, reqwest::Error> {
+        let mut request = Url::parse(API).unwrap();
 
-        let req_link = format!("{}{}{}", API, ENDPOINT_TRACK, id);
+        request.set_path(&format!("{}{}", ENDPOINT_TRACK, id));
 
-        //dbg!(&req_link);
+        //dbg!(&request);
 
-        let res = self.client
-            .get(&req_link)
+        let response = self.client
+            .get(request.as_str())
             .send()
             .await?
             .json::<serde_json::Value>()
             .await?;
 
-        //dbg!(&res);
+        //dbg!(&response);
 
-        let track = res["title"].as_str().unwrap();
+        let track = response["title"].as_str().unwrap();
         //dbg!(&track);
 
-        let artist = res["artist"]["name"].as_str().unwrap();
+        let artist = response["artist"]["name"].as_str().unwrap();
         //dbg!(&artist);
 
         Ok(UrlData {
@@ -49,18 +59,22 @@ impl DeezerController {
     }
 
     pub async fn generate_url(&self, data: &UrlData) -> Result<String, reqwest::Error> {
-        let link = format!("{}{}artist:\"{}\" track:\"{}\"", API, API_SEARCH, data.artist, data.track);
+        let mut request = Url::parse(API).unwrap();
+        request.set_path(API_SEARCH);
+        
+        let request_query = format!("artist:\"{}\" track:\"{}\"", data.artist, data.track);
 
-        let res = self.client.get(&link)
+        let response = self.client.get(request.as_str())
+            .query(&[("q", request_query.as_str())])
             .send()
             .await?
-            .text()
+            .json::<serde_json::Value>()
             .await?;
-        
-        let res: serde_json::Value = serde_json::from_str(res.as_str()).unwrap();
 
-        let res = res["data"][0]["link"].as_str().unwrap();
+        //dbg!(&response);
 
-        Ok(res.to_string())
+        let response = response["data"][0]["link"].as_str().unwrap();
+
+        Ok(response.to_string())
     }
 }
