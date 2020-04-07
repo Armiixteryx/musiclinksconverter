@@ -4,7 +4,7 @@ use std::error::Error;
 use tbot::prelude::*;
 use tbot::types::chat::Action;
 
-use services::{deezer::DeezerController, spotify::SpotifyController, Services};
+use services::{deezer::{DeezerError, DeezerController}, spotify::SpotifyController, Services};
 //use services::UrlService;
 
 #[tokio::main]
@@ -47,8 +47,13 @@ async fn main() -> Result<(), reqwest::Error> {
 
                             control_deezer.generate_url(&spotify_data).await.unwrap_or_else(|e| {
                                 match e {
-                                    services::deezer::DeezerError::NotFound => "Not found in Deezer.".to_string(),
-                                    services::deezer::DeezerError::Reqwest(net_err) => format!("Network error: {}", net_err)
+                                    DeezerError::NotFound => "Not found in Deezer.".to_string(),
+                                    DeezerError::Reqwest(net_err) => format!("Network error: {}", net_err),
+                                    DeezerError::Deserialization(_) => "Internal error".to_string(),
+                                    DeezerError::Other(e) => {
+                                        eprintln!("{}", e);
+                                        "Internal error".to_string()
+                                    }
                                 }
                             })
                         }

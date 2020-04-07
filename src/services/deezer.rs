@@ -28,12 +28,26 @@ struct ServerResponse {
 #[derive(Debug)]
 pub enum DeezerError {
     NotFound,
-    Reqwest(reqwest::Error)
+    Reqwest(reqwest::Error),
+    Deserialization(serde_json::error::Error),
+    Other(String)
 }
 
 impl From<reqwest::Error> for DeezerError {
     fn from(err: reqwest::Error) -> Self {
         DeezerError::Reqwest(err)
+    }
+}
+
+impl From<serde_json::error::Error> for DeezerError {
+    fn from(err: serde_json::error::Error) -> Self {
+        DeezerError::Deserialization(err)
+    }
+}
+
+impl From<url::ParseError> for DeezerError {
+    fn from(err: url::ParseError) -> Self {
+        DeezerError::Other(err.to_string())
     }
 }
 
@@ -48,12 +62,10 @@ impl DeezerController {
         }
     }
 
-    pub async fn analyze_url(&self, id: &str) -> Result<UrlData, reqwest::Error> {
-        let mut request = Url::parse(API).unwrap();
+    pub async fn analyze_url(&self, id: &str) -> Result<UrlData, DeezerError> {
+        let mut request = Url::parse(API)?;
 
         request.set_path(&format!("{}{}", ENDPOINT_TRACK, id));
-
-        //dbg!(&request);
 
         let response = self
             .client
@@ -63,22 +75,24 @@ impl DeezerController {
             .json::<serde_json::Value>()
             .await?;
 
-        //dbg!(&response);
+        let track = match response["title"].as_str() {
+            Some(track) => track.to_string(),
+            None => return Err(DeezerError::Other("The data extraction returned nothing".to_string()))
+        };
 
-        let track = response["title"].as_str().unwrap();
-        //dbg!(&track);
-
-        let artist = response["artist"]["name"].as_str().unwrap();
-        //dbg!(&artist);
+        let artist = match response["artist"]["name"].as_str() {
+            Some(artist) => artist.to_string(),
+            None => return Err(DeezerError::Other("The data extraction returned nothing".to_string()))
+        };
 
         Ok(UrlData {
-            artist: artist.to_string(),
-            track: track.to_string(),
+            artist,
+            track,
         })
     }
 
     pub async fn generate_url(&self, data: &UrlData) -> Result<String, DeezerError> {
-        let mut request = Url::parse(API).unwrap();
+        let mut request = Url::parse(API)?;
         request.set_path(API_SEARCH);
 
         let request_query = format!("artist:\"{}\" track:\"{}\"", data.artist, data.track);
@@ -88,11 +102,12 @@ impl DeezerController {
             .get(request.as_str())
             .query(&[("q", request_query.as_str())])
             .send()
-            .await?
-            .json::<ServerResponse>()
             .await?;
+            
+        // TODO: Use status to handle errors
+        //dbg!(&response.status());
 
-        dbg!(&response);
+        let response: ServerResponse = serde_json::from_slice(&response.bytes().await?)?;
 
         let res_total: usize = response.total;
 
@@ -102,8 +117,11 @@ impl DeezerController {
             return Err(DeezerError::NotFound);
         }
 
-        let response = response.data[0]["link"].as_str().unwrap();
+        match response.data[0]["link"].as_str() {
+            Some(res) => Ok(res.to_string()),
+            None => Err(DeezerError::Other("The data extraction returned nothing".to_string()))
+        }
 
-        Ok(response.to_string())
+        //Ok(response.to_string())
     }
 }
