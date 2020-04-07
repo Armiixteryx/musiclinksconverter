@@ -45,7 +45,12 @@ async fn main() -> Result<(), reqwest::Error> {
                                 panic!();
                             });
 
-                            control_deezer.generate_url(&spotify_data).await.unwrap()
+                            control_deezer.generate_url(&spotify_data).await.unwrap_or_else(|e| {
+                                match e {
+                                    services::deezer::DeezerError::NotFound => "Not found in Deezer.".to_string(),
+                                    services::deezer::DeezerError::Reqwest(net_err) => format!("Network error: {}", net_err)
+                                }
+                            })
                         }
                     }
                 }

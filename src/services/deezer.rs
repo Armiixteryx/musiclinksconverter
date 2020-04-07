@@ -19,6 +19,24 @@ impl<'a> Constants<'a> for Metadata {
     const ID_LEN: usize = 9;
 }
 
+#[derive(Debug, serde::Deserialize)]
+struct ServerResponse {
+    data: serde_json::Value,
+    total: usize
+}
+
+#[derive(Debug)]
+pub enum DeezerError {
+    NotFound,
+    Reqwest(reqwest::Error)
+}
+
+impl From<reqwest::Error> for DeezerError {
+    fn from(err: reqwest::Error) -> Self {
+        DeezerError::Reqwest(err)
+    }
+}
+
 pub struct DeezerController {
     client: reqwest::Client,
 }
@@ -59,7 +77,7 @@ impl DeezerController {
         })
     }
 
-    pub async fn generate_url(&self, data: &UrlData) -> Result<String, reqwest::Error> {
+    pub async fn generate_url(&self, data: &UrlData) -> Result<String, DeezerError> {
         let mut request = Url::parse(API).unwrap();
         request.set_path(API_SEARCH);
 
@@ -71,12 +89,20 @@ impl DeezerController {
             .query(&[("q", request_query.as_str())])
             .send()
             .await?
-            .json::<serde_json::Value>()
+            .json::<ServerResponse>()
             .await?;
 
-        //dbg!(&response);
+        dbg!(&response);
 
-        let response = response["data"][0]["link"].as_str().unwrap();
+        let res_total: usize = response.total;
+
+        // It's a strange thing that when Deezer doesn't find a song
+        // it returns a void request rather than ERR 800 of its API
+        if res_total == 0 {
+            return Err(DeezerError::NotFound);
+        }
+
+        let response = response.data[0]["link"].as_str().unwrap();
 
         Ok(response.to_string())
     }
