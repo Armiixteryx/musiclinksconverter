@@ -19,6 +19,7 @@ impl<'a> Constants<'a> for Metadata {
     const ID_LEN: usize = 9;
 }
 
+/*
 pub struct DeezerController {
     client: reqwest::Client,
 }
@@ -81,3 +82,4 @@ impl DeezerController {
         Ok(response.to_string())
     }
 }
+*/

@@ -1,63 +1,47 @@
 mod services;
 
 use std::error::Error;
-use tbot::prelude::*;
-use tbot::types::chat::Action;
-
-use services::{deezer::DeezerController, spotify::SpotifyController, Services};
-//use services::UrlService;
+use teloxide::prelude::*;
 
 #[tokio::main]
-async fn main() -> Result<(), reqwest::Error> {
-    let mut bot = tbot::from_env!("BOT_TOKEN").event_loop();
+async fn main() -> Result<(), Box<dyn Error>> {
+    pretty_env_logger::init();
+    log::info!("Starting bot");
 
-    bot.text(|context| {
-        async move {
-            let user_msg = &context.text.value;
+    let bot = Bot::from_env().auto_send();
 
-            let checked_url = services::get_service(user_msg).unwrap();
+    teloxide::repl(bot, |message: Message, bot: AutoSend<Bot>| async move {
+        log::info!("Received msg: ");
+        let mut response = None;
 
-            let service = checked_url.service;
-            let id = checked_url.id;
-
-            //dbg!(&service);
-
-            let control_deezer = DeezerController::new();
-            let control_spotify = SpotifyController::new().await.unwrap();
-
-            // `Typing...` status in chat
-            context
-                .send_chat_action(Action::Typing)
-                .call()
-                .await
-                .unwrap();
-
-            let message = match service {
-                Services::Deezer => {
-                    let deezer_data = control_deezer.analyze_url(&id).await.unwrap();
-
-                    control_spotify.generate_url(&deezer_data).await.unwrap()
+        if let Some(txt) = message.text() {
+            match services::get_service(txt) {
+                Ok(url) => {
+                    log::info!("{txt}");
+                    match url.service {
+                        services::Services::Deezer => {
+                            response = Some("You have sent a Deezer link!");
+                        }
+                        services::Services::Spotify => {
+                            response = Some("You have sent a Spotify link!");
+                        }
+                    }
                 }
-                Services::Spotify => {
-                    let spotify_data = control_spotify.analyze_url(&id).await.unwrap_or_else(|e| {
-                        eprintln!("Error: {}", e);
-                        eprintln!("Caused by: {}", e.source().unwrap());
-                        panic!();
-                    });
-
-                    control_deezer.generate_url(&spotify_data).await.unwrap()
+                Err(_err) => {
+                    log::info!("Not a music link")
                 }
-            };
-
-            context
-                .send_message_in_reply(&message)
-                .call()
-                .await
-                .unwrap();
+            }
         }
-    });
 
-    bot.polling().start().await.unwrap();
+        //log::info!("Sending dice...");
+
+        //bot.send_dice(message.chat.id).await?;
+        let response = response.unwrap_or("Not a valid message, try again");
+        bot.send_message(message.chat.id, response).await?;
+
+        respond(())
+    })
+    .await;
 
     Ok(())
 }

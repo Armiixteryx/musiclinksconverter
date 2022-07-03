@@ -1,6 +1,6 @@
 use super::{Constants, UrlData};
-use reqwest::header::{ACCEPT, AUTHORIZATION, X_CONTENT_TYPE_OPTIONS};
-use serde::Deserialize;
+//use reqwest::header::{ACCEPT, AUTHORIZATION, X_CONTENT_TYPE_OPTIONS};
+//use serde::Deserialize;
 use std::env::var;
 use url::Url;
 
@@ -17,6 +17,19 @@ const TOKEN_URL: &'static str = "https://accounts.spotify.com/api/token";
 const ENV_CLIENT_ID: &'static str = "BOT_SPOTIFY_CLIENT_ID";
 const ENV_CLIENT_SECRET: &'static str = "BOT_SPOTIFY_CLIENT_SECRET";
 
+pub struct Metadata {}
+
+impl<'a> Constants<'a> for Metadata {
+    const URL_PLAYER_HOST: &'static str = "open.spotify.com";
+
+    fn music_object_type() -> Vec<&'a str> {
+        vec!["track", "album", "artist"]
+    }
+
+    const ID_LEN: usize = 22;
+}
+
+/*
 #[derive(Deserialize, Debug)]
 struct SpotifyAuth {
     access_token: String,
@@ -34,18 +47,6 @@ pub struct SpotifyController {
     http_client: reqwest::Client,
     credentials: SpotifyCredentials,
     auth_token: SpotifyAuth,
-}
-
-pub struct Metadata {}
-
-impl<'a> Constants<'a> for Metadata {
-    const URL_PLAYER_HOST: &'static str = "open.spotify.com";
-
-    fn music_object_type() -> Vec<&'a str> {
-        vec!["track", "album", "artist"]
-    }
-
-    const ID_LEN: usize = 22;
 }
 
 impl SpotifyController {
@@ -153,3 +154,4 @@ impl SpotifyController {
         ))
     }
 }
+*/

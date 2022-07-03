@@ -35,7 +35,7 @@ pub fn get_service<'a>(user_url: &str) -> Result<UrlService, &'static str> {
     let object_type;
     let service_id_len;
 
-    let mut url = Url::parse(user_url).unwrap();
+    let mut url = Url::parse(user_url).map_err(|_err| ERROR_MSG)?;
 
     let scheme = url.scheme();
 
